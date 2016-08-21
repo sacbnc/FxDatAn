@@ -1,0 +1,177 @@
+##########################################################
+# H E A D E R 
+##########################################################
+# Name   : Datan
+# Purpose: Data analysis tool for financnial instrument data
+# Author : Steve Armstrong
+         
+##########################################################
+# V E R S I O N 
+##########################################################
+# VERS AUTH  DATE              CHANGES
+# --------------------------------------------------------
+# 0.1  SRA  070816   Created initial structure
+# 0.2  SRA  080816   Added DATAN_ALGO_DIR, pilled algo out
+#                    and seperated into own file
+# 0.3  SRA  120816   Included sys.path.appends to include
+#                    all dirs in path for importing functions
+#                    with that ideas that algos import main
+#                    and then have everything they need
+
+##########################################################
+# I M P O R T S
+##########################################################
+
+import os 
+import sys
+import ntpath
+import inspect
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+DATAN_MASTER_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + "/"
+DATAN_MAIN_DIR   = DATAN_MASTER_DIR + "main/"
+DATAN_CONFIG_DIR = DATAN_MASTER_DIR + "config/"
+DATAN_ALGO_DIR   = DATAN_MASTER_DIR + "algo/"
+DATAN_FUNC_DIR   = DATAN_MASTER_DIR + "func/"
+DATA_LOG_DIR     = DATAN_MASTER_DIR + "log/"
+
+# Further imports via path
+sys.path.append(DATAN_MAIN_DIR)
+sys.path.append(DATAN_ALGO_DIR)
+sys.path.append(DATAN_FUNC_DIR)
+
+from confol import confol
+
+##########################################################
+# V A R I A B L E S
+##########################################################
+
+# DATA FILENAMES
+THIS = os.path.abspath(__file__)
+DATAN_DATA_DIRS_FILE = DATAN_CONFIG_DIR + "data"
+
+# OUTPUT VARS
+OUTPUT_TYPES = ["INFO", "WARN", "FAIL"]
+OUTPUT_INFO, OUTPUT_WARN, OUTPUT_FAIL = 0,1,2
+data_files = []
+data_syms  = []
+
+# DATAFRAME VARS
+df_default_cols=['<DATE>', '<TIME>', '<OPEN>', '<LOW>', '<HIGH>', '<CLOSE>']
+df_default_index=df_default_cols[0]
+
+
+##########################################################
+# F U N C T I O N S
+##########################################################
+
+#---------------------------------------------------------
+# FUNCTION output
+# Print something to screen, identify if you want an error
+# or not
+
+def output(type, location, message):
+    if os.path.isfile(location):
+        location = location.split('/')[-1]
+    print OUTPUT_TYPES[type] + " => " + location + ": " + message
+
+#---------------------------------------------------------
+# FUNCTION get_data_dirs
+# Get all valid directories specified in filename
+
+def get_data_dirs(filename):
+    # Read lines of DATAN_DATA_FILE 
+    with open(filename) as file:
+        data_dirs_tmp = file.read().splitlines()
+    
+    data_dirs = []
+    # Check if each line is a valid dir
+    for dir in data_dirs_tmp:
+        if os.path.isdir(dir):
+            data_dirs.append(dir)
+    
+    return data_dirs
+
+#---------------------------------------------------------
+# FUNCTION get_data_files
+# Get all valid data files listed in data directories list
+        
+def get_data_files(data_directories):
+    #data_files = []
+    global data_files
+    for directory in data_directories:
+        # Check last char is a /, if not append it
+        if directory[-1] != '/':
+            directory = directory + '/'
+        
+        # List files in dir, check they exist, if so
+        # append directory and filename to data_files list    
+        for file in os.listdir(directory):
+            if os.path.isfile(directory + file):
+                data_files.append(directory + file)
+        
+        return data_files
+
+#---------------------------------------------------------
+# FUNCTION list_data_files
+# Print out all available data files to screen        
+    
+def list_data_files():
+    # Check data_files is not empty
+    if not data_files:
+        output(OUTPUT_WARN, 
+               inspect.stack()[0][3], 
+               "no data files")
+        return
+    
+    for file in data_files:
+        # Get filename from path, split on delimiter of .
+        # which returns a list of the filename and extension
+        # then print only the first element (filename)
+        print ntpath.basename(file).split('.', 1)[0]
+
+#---------------------------------------------------------
+# FUNCTION get_dataframe
+# Return a dataframe from filename
+
+def get_dataframe(file, cols, index):
+    # Check file is a file
+    if not os.path.isfile(file):
+        output(OUTPUT_WARN, 
+               inspect.stack()[0][3], 
+               file + " does not exist")
+        
+    # Check cols is not empty
+    if not cols:
+        output(OUTPUT_WARN, 
+               inspect.stack()[0][3], 
+               "cols is empty")
+        
+    output(OUTPUT_INFO, 
+           THIS, 
+           "getting dataframe for " + ntpath.basename(file))
+    
+    return pd.read_csv(file,
+                       index_col=index,
+                       parse_dates=True,
+                       usecols=cols,
+                       na_values=['nan'])
+
+##########################################################
+# M A I N 
+########################################################## 
+
+data_files = get_data_files(get_data_dirs(DATAN_DATA_DIRS_FILE))
+
+#df = get_dataframe(data_files[1], df_default_cols, df_default_index)
+
+data_frames = []
+for file in data_files:
+    data_syms.append(os.path.abspath(file).split('/')[-1].split('.')[0])
+    data_frames.append(get_dataframe(file, df_default_cols, df_default_index))
+
+
+
+
